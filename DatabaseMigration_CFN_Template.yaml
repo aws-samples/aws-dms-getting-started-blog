@@ -1,0 +1,816 @@
+# AWS Database Migration Workshop
+# Last Updated on Nov-05-2020 by HH
+
+AWSTemplateFormatVersion: "2010-09-09"
+Description: CloudFormation Template for AWS Database Migration Workshop.
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: "Database Migration Workshop Environment"
+        Parameters:
+          - LabType
+      - Label:
+          default: "Amazon EC2 Configuration"
+        Parameters:
+          - EC2ServerInstanceType
+          - KeyName
+      - Label:
+          default: "Target Amazon RDS Database Configuration"
+        Parameters:
+          - RDSInstanceType
+      - Label:
+          default: "Network Configuration"
+        Parameters:
+          - VpcCIDR
+          - Subnet1CIDR
+          - Subnet2CIDR
+          - Subnet3CIDR
+          - YourIPAddress
+
+Mappings:
+  RegionMap:
+    us-east-1: # Virginia
+      "OracleSnapshotId": "arn:aws:rds:us-east-1:833997227572:snapshot:dms-lab-oracle-source-snapshot01"
+    us-east-2: # Ohio
+      "OracleSnapshotId": "arn:aws:rds:us-east-2:833997227572:snapshot:dms-lab-oracle-source-us-east-2-snapshot01"
+    us-west-2: # Oregon
+      "OracleSnapshotId": "arn:aws:rds:us-west-2:833997227572:snapshot:dms-lab-oracle-source-us-west-2-snapshot01"
+    ap-south-1: # Mumbai
+      "OracleSnapshotId": "arn:aws:rds:ap-south-1:833997227572:snapshot:dms-lab-oracle-source-ap-south-1-snapshot01"
+    ap-northeast-2: # Seoul
+      "OracleSnapshotId": "arn:aws:rds:ap-northeast-2:833997227572:snapshot:dms-lab-oracle-source-ap-northeast-2-snapshot01"
+    ap-southeast-1: # Singapore
+      "OracleSnapshotId": "arn:aws:rds:ap-southeast-1:833997227572:snapshot:dms-lab-oracle-source-ap-southeast-1-snapshot01"
+    ap-southeast-2: # Sydney
+      "OracleSnapshotId": "arn:aws:rds:ap-southeast-2:833997227572:snapshot:dms-lab-oracle-source-ap-southeast-2-snapshot01"
+    ap-northeast-1: # Tokyo
+      "OracleSnapshotId": "arn:aws:rds:ap-northeast-1:833997227572:snapshot:dms-lab-oracle-source-ap-northeast-1-snapshot01"
+    ca-central-1: # Canada
+      "OracleSnapshotId": "arn:aws:rds:ca-central-1:833997227572:snapshot:dms-lab-oracle-source-ca-central-1-snapshot01"
+    eu-central-1: # Frankfurt
+      "OracleSnapshotId": "arn:aws:rds:eu-central-1:833997227572:snapshot:dms-lab-oracle-source-eu-central-1-snapshot01"
+    eu-west-1: # Ireland
+      "OracleSnapshotId": "arn:aws:rds:eu-west-1:833997227572:snapshot:dms-lab-oracle-source-eu-west-1-snapshot01"
+    eu-west-2: # London
+      "OracleSnapshotId": "arn:aws:rds:eu-west-2:833997227572:snapshot:dms-lab-oracle-source-snapshot"
+    eu-west-3: # Paris
+      "OracleSnapshotId": "arn:aws:rds:eu-west-3:833997227572:snapshot:dms-lab-oracle-source-snapshot"
+    eu-north-1: # Stockholm
+      "OracleSnapshotId": "arn:aws:rds:eu-north-1:833997227572:snapshot:dms-lab-oracle-source-snapshot"
+    sa-east-1: # Sao Paulo
+      "OracleSnapshotId": "arn:aws:rds:sa-east-1:833997227572:snapshot:dms-lab-oracle-source-snapshot"
+
+Parameters:
+  LabType:
+    Description: "Select your Database Migration lab:"
+    Type: String
+    AllowedValues:
+      - "Microsoft SQL Server to Amazon Aurora (MySQL)"
+      - "Oracle to Amazon Aurora (PostgreSQL)"
+    ConstraintDescription: Must select a lab environment from the options.
+  KeyName:
+    Description: Name of an existing EC2 KeyPair to enable RDP access to the instance
+    Type: AWS::EC2::KeyPair::KeyName
+    ConstraintDescription: must be the name of an existing EC2 KeyPair.
+  LatestWinAmiId:
+    Type: 'AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>'
+    Default: '/aws/service/ami-windows-latest/Windows_Server-2019-English-Full-Base'
+  LatestWinSQLServerAmiId:
+    Type: 'AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>'
+    Default: '/aws/service/ami-windows-latest/Windows_Server-2019-English-Full-SQL_2019_Standard'
+  VpcCIDR:
+    Description: Enter the VPC CIDR range in the form x.x.x.x/16
+    Type: String
+    MinLength: 9
+    MaxLength: 18
+    AllowedPattern: "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})"
+    ConstraintDescription: Must be a valid CIDR range in the form x.x.x.x/16
+    Default: 10.20.0.0/16
+  Subnet1CIDR:
+    Description: Enter the Subnet 1 CIDR range in the form x.x.x.x/22
+    Type: String
+    MinLength: 9
+    MaxLength: 18
+    AllowedPattern: "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})"
+    ConstraintDescription: Must be a valid CIDR range in the form x.x.x.x/22
+    Default: 10.20.1.0/24
+  Subnet2CIDR:
+    Description: Enter the Subnet 2 CIDR range in the form x.x.x.x/22
+    Type: String
+    MinLength: 9
+    MaxLength: 18
+    AllowedPattern: "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})"
+    ConstraintDescription: Must be a valid CIDR range in the form x.x.x.x/22
+    Default: 10.20.2.0/24
+  Subnet3CIDR:
+    Description: Enter the Subnet 3 CIDR range in the form x.x.x.x/22
+    Type: String
+    MinLength: 9
+    MaxLength: 18
+    AllowedPattern: "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})"
+    ConstraintDescription: Must be a valid CIDR range in the form x.x.x.x/22
+    Default: 10.20.3.0/24
+  YourIPAddress:
+    Description: "Enter your IP address in the form x.x.x.x/32  You can find your IP on this website http://ipinfo.io/ip"
+    Type: String
+    MinLength: 4
+    MaxLength: 15
+    AllowedPattern: "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})"
+    ConstraintDescription: Must be a valid IP address in the form x.x.x.x/32
+    Default: 0.0.0.0/0
+  EC2ServerInstanceType:
+    Description: Amazon EC2 Instance Type
+    Type: String
+    Default: m5a.xlarge
+    AllowedValues:
+      - m5.large
+      - m5.xlarge
+      - m5.2xlarge
+      - m5.4xlarge
+      - m5.8xlarge
+      - m5a.large
+      - m5a.xlarge
+      - m5a.2xlarge
+      - m5a.4xlarge
+      - m5a.8xlarge
+    ConstraintDescription: Must be a valid EC2 instance type.
+  RDSInstanceType:
+    Description: Amazon RDS Aurora Instance Type
+    Type: String
+    Default: db.r5.xlarge
+    AllowedValues:
+      - db.r5.large
+      - db.r5.xlarge
+      - db.r5.2xlarge
+      - db.r5.4xlarge
+      - db.r5.12xlarge
+      - db.r4.large
+      - db.r4.xlarge
+      - db.r4.2xlarge
+      - db.r4.4xlarge
+      - db.r4.8xlarge
+    ConstraintDescription: Must be a valid Amazon RDS instance type.
+
+Conditions:
+  Create-SQLServer-to-AuroraMySQL-Environment:
+    !Equals [!Ref LabType, "Microsoft SQL Server to Amazon Aurora (MySQL)"]
+  Create-Oracle-to-AuroraPostgreSQL-Environment:
+    !Equals [!Ref LabType, "Oracle to Amazon Aurora (PostgreSQL)"]
+
+Resources:
+  DmsVpc:
+    Type: AWS::EC2::VPC
+    Properties:
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      CidrBlock:
+        Ref: VpcCIDR
+      Tags:
+        - Key: Name
+          Value:
+            Fn::Join:
+              - "-"
+              - - Ref: AWS::StackName
+                - DmsVpc
+  
+  Subnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref DmsVpc
+      CidrBlock:
+        Ref: Subnet1CIDR
+      AvailabilityZone: !Select [0, !GetAZs ]
+      Tags:
+        - Key: Name
+          Value:
+            Fn::Join:
+              - "-"
+              - - Ref: AWS::StackName
+                - Subnet1
+  
+  Subnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref DmsVpc
+      CidrBlock:
+        Ref: Subnet2CIDR
+      AvailabilityZone: !Select [1, !GetAZs ]
+      Tags:
+        - Key: Name
+          Value:
+            Fn::Join:
+              - "-"
+              - - Ref: AWS::StackName
+                - Subnet2
+  
+  Subnet3:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref DmsVpc
+      CidrBlock:
+        Ref: Subnet3CIDR
+      AvailabilityZone: !Select [2, !GetAZs ]
+      Tags:
+        - Key: Name
+          Value:
+            Fn::Join:
+              - "-"
+              - - Ref: AWS::StackName
+                - Subnet3
+ 
+  DBSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: Subnets available for the DMS Lab
+      SubnetIds:
+        - Ref: Subnet1
+        - Ref: Subnet2
+        - Ref: Subnet3
+  
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value:
+            Fn::Join:
+              - "-"
+              - - Ref: AWS::StackName
+                - InternetGateway
+  
+  AttachGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref DmsVpc
+      InternetGatewayId: !Ref InternetGateway
+  
+  RouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref DmsVpc
+      Tags:
+        - Key: Name
+          Value:
+            Fn::Join:
+              - "-"
+              - - Ref: AWS::StackName
+                - RouteTable
+  Route:
+    Type: AWS::EC2::Route
+    DependsOn: AttachGateway
+    Properties:
+      RouteTableId: !Ref RouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+  
+  Subnet1RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref Subnet1
+      RouteTableId: !Ref RouteTable
+  
+  Subnet2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref Subnet2
+      RouteTableId: !Ref RouteTable
+  
+  Subnet3RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref Subnet3
+      RouteTableId: !Ref RouteTable
+ 
+  S3ReadOnlyAccessRole:
+    Condition: Create-SQLServer-to-AuroraMySQL-Environment
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ec2.amazonaws.com
+            Action:
+              - "sts:AssumeRole"
+      Path: /
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess"
+  
+  EC2InstanceProfile:
+    Condition: Create-SQLServer-to-AuroraMySQL-Environment
+    Type: "AWS::IAM::InstanceProfile"
+    Properties:
+      Path: /
+      Roles:
+        - !Ref S3ReadOnlyAccessRole
+  
+  EC2InstanceOracle:
+    Condition: Create-Oracle-to-AuroraPostgreSQL-Environment
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: !Ref EC2ServerInstanceType
+      KeyName: !Ref KeyName
+      Tags:
+        - Key: Name
+          Value:
+            Fn::Join:
+              - "-"
+              - - Ref: AWS::StackName
+                - EC2Instance
+      BlockDeviceMappings:
+        - DeviceName: "/dev/sda1"
+          Ebs:
+            DeleteOnTermination: true
+            Iops: 2000
+            VolumeSize: 250
+            VolumeType: io1
+      ImageId: !Ref LatestWinAmiId
+      NetworkInterfaces:
+        - AssociatePublicIpAddress: true
+          DeleteOnTermination: true
+          DeviceIndex: "0"
+          SubnetId: !Ref Subnet2
+          GroupSet:
+            - Ref: InstanceSecurityGroup
+      UserData:
+          Fn::Base64:
+            !Sub |
+              <powershell>
+              $log = 'C:\initialize.log'
+              $now = Get-Date
+              try {
+                  Install-PackageProvider -Name NuGet -Force
+                  Add-Content $log -value "[$now] - NuGet installed."
+              } catch {
+                  Add-Content $log -value "[$now] - Installing NuGet returned the following error: $_"
+              }
+              try {
+                  Install-Module -Name 7Zip4Powershell -Force
+                  Add-Content $log -value "[$now] - 7Zip4Powershell installed."
+              } catch {
+                  Add-Content $log -value "[$now] - Installing 7Zip4Powershell returned the following error: $_"
+              }
+              try {
+                  wget https://do-not-delete-dms-blogpost.s3.amazonaws.com/DMS-Workshop.zip -OutFile "C:\Users\Administrator\Desktop\DMS-Workshop.zip"
+                  Add-Content $log -value "[$now] - DMS-Workshop.zip downloaded."
+              } catch {
+                  Add-Content $log -value "[$now] - Downloading DMS-Workshop.zip returned the following error: $_"
+              }
+              try {
+                  Expand-Archive -LiteralPath "C:\Users\Administrator\Desktop\DMS-Workshop.zip" -DestinationPath "C:\Users\Administrator\Desktop"
+                  Add-Content $log -value "[$now] - DMS Workshop.zip unzipped."
+              } catch {
+                  Add-Content $log -value "[$now] - DMS Workshop.zip unzipped returned the following error: $_"
+              }
+              try {
+                  Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Active Setup\Installed Components\{A509B1A7-37EF-4b3f-8CFC-4F3A74704073}" -Name "IsInstalled" -Value 0 | Out-Null
+                  Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Active Setup\Installed Components\{A509B1A8-37EF-4b3f-8CFC-4F3A74704073}" -Name "IsInstalled" -Value 0 | Out-Null
+                  Stop-Process -Name Explorer | Out-Null
+                  Add-Content $log -value "[$now] - IE Enhanced Security Configuration (ESC) has been disabled."
+              } catch {
+                  Add-Content $log -value "[$now] - Disabling IE Enhanced Security Configuration (ESC) returned the following error: $_"
+              }
+              try {
+                  Remove-Item -Path "C:\Users\Administrator\Desktop\EC2 Feedback.website"
+                  Remove-Item -Path "C:\Users\Administrator\Desktop\EC2 Microsoft Windows Guide.website"
+                  Remove-Item -Path "C:\Users\Administrator\Desktop\DMS-Workshop.zip"
+                  Remove-Item -Path "C:\Users\Administrator\Desktop\DMS Workshop\temp" -Force
+                  Add-Content $log -value "[$now] - Cleanup completed."
+              } catch {
+                  Add-Content $log -value "[$now] - Cleanup returned the following error: $_"
+              }
+              </powershell>
+
+  EC2InstanceSQLServer:
+    Condition: Create-SQLServer-to-AuroraMySQL-Environment
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: !Ref EC2ServerInstanceType
+      KeyName: !Ref KeyName
+      Tags:
+        - Key: Name
+          Value:
+            Fn::Join:
+              - "-"
+              - - Ref: AWS::StackName
+                - EC2Instance
+      IamInstanceProfile: !Ref EC2InstanceProfile
+      BlockDeviceMappings:
+        - DeviceName: "/dev/sda1"
+          Ebs:
+            DeleteOnTermination: true
+            Iops: 2000
+            VolumeSize: 250
+            VolumeType: io1
+      ImageId: !Ref LatestWinSQLServerAmiId
+      NetworkInterfaces:
+        - AssociatePublicIpAddress: true
+          DeleteOnTermination: true
+          DeviceIndex: "0"
+          SubnetId: !Ref Subnet2
+          GroupSet:
+            - Ref: InstanceSecurityGroup
+      UserData:
+          Fn::Base64:
+            !Sub |
+              <powershell>
+              $log = 'C:\initialize.log'
+              $now = Get-Date
+              try {
+                  Install-PackageProvider -Name NuGet -Force
+                  Add-Content $log -value "[$now] - NuGet installed."
+              } catch {
+                  Add-Content $log -value "[$now] - Installing NuGet returned the following error: $_"
+              }
+              try {
+                  Install-Module dbatools -Force
+                  Add-Content $log -value "[$now] - dbatools installed."
+              } catch {
+                  Add-Content $log -value "[$now] - Installing dbatools returned the following error: $_"
+              }
+              try {
+                  Install-Module -Name 7Zip4Powershell -Force
+                  Add-Content $log -value "[$now] - 7Zip4Powershell installed."
+              } catch {
+                  Add-Content $log -value "[$now] - Installing 7Zip4Powershell returned the following error: $_"
+              }
+              try {
+                  Start-Service -Name "SQLSERVERAGENT"
+                  Add-Content $log -value "[$now] - SQL Server Agent started."
+              } catch {
+                  Add-Content $log -value "[$now] - Starting the SQL Server Agent returned the following error: $_"
+              }
+              try {
+                  wget https://do-not-delete-dms-blogpost.s3.amazonaws.com/DMS-Workshop.zip -OutFile "C:\Users\Administrator\Desktop\DMS-Workshop.zip"
+                  Add-Content $log -value "[$now] - DMS-Workshop.zip downloaded."
+              } catch {
+                  Add-Content $log -value "[$now] - Downloading DMS-Workshop.zip returned the following error: $_"
+              }
+              try {
+                  Expand-Archive -LiteralPath "C:\Users\Administrator\Desktop\DMS-Workshop.zip" -DestinationPath "C:\Users\Administrator\Desktop"
+                  Add-Content $log -value "[$now] - DMS-Workshop.zip unzipped."
+              } catch {
+                  Add-Content $log -value "[$now] - DMS-Workshop.zip unzipped returned the following error: $_"
+              }
+              try {
+                  Read-S3Object -BucketName "do-not-delete-dms-blogpost" -Key dms_sample.zip -File "C:\Users\Administrator\Desktop\dms_sample.zip"
+                  Add-Content $log -value "[$now] - SQL Server backup downloaded."
+              } catch {
+                  Add-Content $log -value "[$now] - Downloading SQL Server Backup returned the following error: $_"
+              }
+              try {
+                  Expand-7Zip -ArchiveFileName "C:\Users\Administrator\Desktop\dms_sample.zip" -TargetPath "C:\Program Files\Microsoft SQL Server\MSSQL14.MSSQLSERVER\MSSQL\Backup"
+                  Add-Content $log -value "[$now] - SQL Server backup unzipped."
+              } catch {
+                  Add-Content $log -value "[$now] - SQL Server backup unzip returned the following error: $_"
+              }
+              try {
+                  restore-DbaDatabase -SqlInstance . -DatabaseName dms_sample -Path "C:\Program Files\Microsoft SQL Server\MSSQL14.MSSQLSERVER\MSSQL\Backup\dms_sample.bak" 
+                  Add-Content $log -value "[$now] - SQL Server backup restored."
+              } catch {
+                  Add-Content $log -value "[$now] - SQL Server backup restore returned the following error: $_"
+              }
+              try {
+                  Invoke-Sqlcmd -InputFile "C:\Users\Administrator\Desktop\DMS Workshop\temp\create-login.sql"
+                  Add-Content $log -value "[$now] - SQL Server login created."
+              } catch {
+                  Add-Content $log -value "[$now] - SQL Server login creation returned the following error: $_"
+              }
+              try {
+                  Invoke-Sqlcmd -InputFile "C:\Users\Administrator\Desktop\DMS Workshop\temp\enable-auth.sql"
+                  Add-Content $log -value "[$now] - SQL Server login enabled."
+              } catch {
+                  Add-Content $log -value "[$now] - SQL Server login enabling returned the following error: $_"
+              }
+              try {
+                  Restart-Service -Force "MSSQLSERVER"
+                  Add-Content $log -value "[$now] - SQL Server restarted."
+              } catch {
+                  Add-Content $log -value "[$now] - SQL Server restart returned the following error: $_"
+              }
+              try {
+                  Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Active Setup\Installed Components\{A509B1A7-37EF-4b3f-8CFC-4F3A74704073}" -Name "IsInstalled" -Value 0 | Out-Null
+                  Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Active Setup\Installed Components\{A509B1A8-37EF-4b3f-8CFC-4F3A74704073}" -Name "IsInstalled" -Value 0 | Out-Null
+                  Stop-Process -Name Explorer | Out-Null
+                  Add-Content $log -value "[$now] - IE Enhanced Security Configuration (ESC) has been disabled."
+              } catch {
+                  Add-Content $log -value "[$now] - Disabling IE Enhanced Security Configuration (ESC) returned the following error: $_"
+              }
+              try {
+                  Remove-Item -Path "C:\Users\Administrator\Desktop\EC2 Feedback.website"
+                  Remove-Item -Path "C:\Users\Administrator\Desktop\EC2 Microsoft Windows Guide.website"
+                  Remove-Item -Path "C:\Users\Administrator\Desktop\DMS-Workshop.zip"
+                  Remove-Item -Path "C:\Users\Administrator\Desktop\dms_sample.zip"
+                  Remove-Item -Path "C:\Users\Administrator\Desktop\DMS Workshop\temp" -Force
+                  Add-Content $log -value "[$now] - Cleanup completed."
+              } catch {
+                  Add-Content $log -value "[$now] - Cleanup returned the following error: $_"
+              }
+              </powershell>
+
+  InstanceSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      Tags:
+        - Key: Name
+          Value:
+            Fn::Join:
+              - "-"
+              - - Ref: AWS::StackName
+                - InstanceSecurityGroup
+      GroupDescription: Enable RDP access via port 3389
+      VpcId: !Ref DmsVpc
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 3389
+          ToPort: 3389
+          CidrIp: !Ref YourIPAddress
+          Description: Allows RDP access to EC2 Instance
+        - IpProtocol: tcp
+          FromPort: 1521
+          ToPort: 1521
+          CidrIp: !Ref VpcCIDR
+          Description: Allows Amazon RDS Oracle Access
+        - IpProtocol: tcp
+          FromPort: 5432
+          ToPort: 5432
+          CidrIp: !Ref VpcCIDR
+          Description: Allows Amazon RDS Aurora (PostgreSQL) Access
+        - IpProtocol: tcp
+          FromPort: 1433
+          ToPort: 1433
+          CidrIp: !Ref VpcCIDR
+          Description: Allows SQL Server Access
+        - IpProtocol: tcp
+          FromPort: 3306
+          ToPort: 3306
+          CidrIp: !Ref VpcCIDR
+          Description: Allows Amazon RDS Aurora (MySQL) Access
+  
+  SourceOracleDB:
+    Condition: Create-Oracle-to-AuroraPostgreSQL-Environment
+    Type: AWS::RDS::DBInstance
+    Properties:
+      Tags:
+        - Key: Name
+          Value:
+            Fn::Join:
+              - "-"
+              - - Ref: AWS::StackName
+                - SourceOracleDB
+      DBName: "OracleDB"
+      AllocatedStorage: "100"
+      StorageType: gp2
+      MasterUsername: "dbmaster"
+      MasterUserPassword: "dbmaster123"
+      DBInstanceClass: !Ref RDSInstanceType
+      Engine: oracle-ee
+      EngineVersion: "12.1.0.2.v6"
+      LicenseModel: bring-your-own-license
+      PubliclyAccessible: false
+      AvailabilityZone:
+        Fn::GetAtt:
+          - Subnet2
+          - AvailabilityZone
+      MultiAZ: false
+      DBSubnetGroupName:
+        Ref: DBSubnetGroup
+      VPCSecurityGroups:
+        - Fn::GetAtt:
+            - OracleSourceSecurityGroup
+            - GroupId
+      DBSnapshotIdentifier:
+        Fn::FindInMap:
+          - RegionMap
+          - !Ref AWS::Region
+          - OracleSnapshotId
+      DBInstanceIdentifier:
+        Fn::Join:
+          - "-"
+          - - Ref: AWS::StackName
+            - SourceOracleDB
+  
+  OracleSourceSecurityGroup:
+    Condition: Create-Oracle-to-AuroraPostgreSQL-Environment
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      Tags:
+        - Key: Name
+          Value:
+            Fn::Join:
+              - "-"
+              - - Ref: AWS::StackName
+                - OracleSourceSecurityGroup
+      GroupDescription: Security group for Source Oracle Instance.
+      VpcId: !Ref DmsVpc
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 1521
+          ToPort: 1521
+          CidrIp: !Ref VpcCIDR
+          Description: Allows Amazon RDS Oracle Access
+  
+  RDSSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      Tags:
+        - Key: Name
+          Value:
+            Fn::Join:
+              - "-"
+              - - Ref: AWS::StackName
+                - RDSSecurityGroup
+      VpcId: !Ref DmsVpc
+      GroupDescription: Amazon Aurora RDS Security Group.
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 5432
+          ToPort: 5432
+          CidrIp: !Ref VpcCIDR
+          Description: Allows Amazon RDS Aurora (PostgreSQL) Access
+        - IpProtocol: tcp
+          FromPort: 3306
+          ToPort: 3306
+          CidrIp: !Ref VpcCIDR
+          Description: Allows Amazon RDS Aurora (MySQL) Access
+        - IpProtocol: tcp
+          FromPort: 1433
+          ToPort: 1433
+          CidrIp: !Ref VpcCIDR
+          Description: Allows Microsoft SQL Server Access
+        - IpProtocol: tcp
+          FromPort: 1521
+          ToPort: 1521
+          CidrIp: !Ref VpcCIDR
+          Description: Allows Oracle Access
+  
+  AuroraPostgresqlCluster:
+    Condition: Create-Oracle-to-AuroraPostgreSQL-Environment
+    Type: AWS::RDS::DBCluster
+    Properties:
+      Tags:
+        - Key: Name
+          Value:
+            Fn::Join:
+              - "-"
+              - - Ref: AWS::StackName
+                - AuroraPostgresqlCluster
+      DBSubnetGroupName:
+        Ref: DBSubnetGroup
+      VpcSecurityGroupIds:
+        - Fn::GetAtt:
+            - RDSSecurityGroup
+            - GroupId
+      Engine: aurora-postgresql
+      EngineVersion: "11.8"
+      DatabaseName: "AuroraDB"
+      DBClusterParameterGroupName: default.aurora-postgresql11
+      MasterUsername: "dbmaster"
+      MasterUserPassword: "dbmaster123"
+      Port: 5432
+  
+  AuroraPostgresqlParameterGroup:
+    Condition: Create-Oracle-to-AuroraPostgreSQL-Environment
+    Type: AWS::RDS::DBParameterGroup
+    Properties:
+      Tags:
+        - Key: Name
+          Value:
+            Fn::Join:
+              - "-"
+              - - Ref: AWS::StackName
+                - AuroraPostgresqlParameterGroup
+      Description: Aurora PostgreSQL DBParameterGroup
+      Family: aurora-postgresql11
+      Parameters:
+        shared_preload_libraries: pg_stat_statements
+  
+  AuroraPostgresqlInstance:
+    Condition: Create-Oracle-to-AuroraPostgreSQL-Environment
+    Type: AWS::RDS::DBInstance
+    Properties:
+      Tags:
+        - Key: Name
+          Value:
+            Fn::Join:
+              - "-"
+              - - Ref: AWS::StackName
+                - AuroraPostgresqlInstance
+      DBInstanceIdentifier:
+        Fn::Join:
+          - "-"
+          - - Ref: AWS::StackName
+            - AuroraPostgreSQLInstance
+      Engine: aurora-postgresql
+      DBParameterGroupName:
+        Ref: AuroraPostgresqlParameterGroup
+      DBClusterIdentifier:
+        Ref: AuroraPostgresqlCluster
+      DBSubnetGroupName:
+        Ref: DBSubnetGroup
+      AutoMinorVersionUpgrade: true
+      DBInstanceClass: !Ref RDSInstanceType
+      PubliclyAccessible: false
+  
+  AuroraMySQLCluster:
+    Condition: Create-SQLServer-to-AuroraMySQL-Environment
+    Type: AWS::RDS::DBCluster
+    Properties:
+      Tags:
+      - Key: Name
+        Value:
+          Fn::Join:
+          - "-"
+          - - Ref: AWS::StackName
+            - AuroraMySQLCluster
+      DBSubnetGroupName:
+        Ref: DBSubnetGroup
+      VpcSecurityGroupIds:
+      - Fn::GetAtt:
+        - RDSSecurityGroup
+        - GroupId
+      DatabaseName: AuroraMySQL
+      Engine: aurora-mysql
+      EngineVersion: 5.7.mysql_aurora.2.07.2
+      MasterUsername: awssct
+      MasterUserPassword: Password1
+    DependsOn: RDSSecurityGroup 
+
+  AuroraMySQLInstance:
+    Condition: Create-SQLServer-to-AuroraMySQL-Environment
+    Type: AWS::RDS::DBInstance
+    Properties:
+      Tags:
+      - Key: Name
+        Value:
+          Fn::Join:
+          - "-"
+          - - Ref: AWS::StackName
+            - AuroraMySQLInstance
+      DBClusterIdentifier:
+        Ref: AuroraMySQLCluster
+      DBInstanceIdentifier:
+        Fn::Join:
+        - "-"
+        - - Ref: AWS::StackName
+          - AuroraMySQLInstance
+      DBSubnetGroupName:
+        Ref: DBSubnetGroup
+      DBInstanceClass: !Ref RDSInstanceType
+      Engine: aurora-mysql
+      PubliclyAccessible: 'false'
+
+Outputs:
+  EC2PublicDNS:
+    Condition: Create-Oracle-to-AuroraPostgreSQL-Environment
+    Description: Public DNS enpoint for the EC2 instance
+    Value:
+      Fn::GetAtt:
+        - EC2InstanceOracle
+        - PublicDnsName
+  EC2PrivateDNS:
+    Condition: Create-Oracle-to-AuroraPostgreSQL-Environment
+    Description: Private DNS endpoint for the EC2 instance
+    Value:
+      Fn::GetAtt:
+        - EC2InstanceOracle
+        - PrivateDnsName
+  SourceEC2PublicDNS:
+    Condition: Create-SQLServer-to-AuroraMySQL-Environment
+    Description: Public DNS enpoint for the EC2 instance
+    Value:
+      Fn::GetAtt:
+        - EC2InstanceSQLServer
+        - PublicDnsName
+  SourceEC2PrivateDNS:
+    Condition: Create-SQLServer-to-AuroraMySQL-Environment
+    Description: Private DNS endpoint for the EC2 instance
+    Value:
+      Fn::GetAtt:
+        - EC2InstanceSQLServer
+        - PrivateDnsName
+  SourceOracleEndpoint:
+    Condition: Create-Oracle-to-AuroraPostgreSQL-Environment
+    Description: Source Oracle RDS Endpoint
+    Value:
+      Fn::GetAtt:
+        - SourceOracleDB
+        - Endpoint.Address
+  TargetAuroraPostgreSQLEndpoint:
+    Condition: Create-Oracle-to-AuroraPostgreSQL-Environment
+    Description: Target Aurora (PostgreSQL) Database Endpoint
+    Value:
+      Fn::GetAtt:
+        - AuroraPostgresqlCluster
+        - Endpoint.Address
+  TargetAuroraMySQLEndpoint:
+    Condition: Create-SQLServer-to-AuroraMySQL-Environment
+    Description: Target Aurora (MySQL) Database Endpoint
+    Value:
+      Fn::GetAtt:
+        - AuroraMySQLInstance
+        - Endpoint.Address
