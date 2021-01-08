@@ -16,7 +16,7 @@
 
 ### Introduction
 
-This repository demonstrates the ease of database migration from an commercial databases such as Microsoft SQL Server and Oracle to open source engines such as Amazon Aurora (MySQL) and Amazon Aurora (PostgreSQL).
+This repository demonstrates the ease of database migration from commercial database engines such as Microsoft SQL Server and Oracle to open source engines such as Amazon Aurora (MySQL) and Amazon Aurora (PostgreSQL).
 
 This section describes the steps to provision the AWS resources that are required for this database migration walkthrough. We use [AWS CloudFormation][cfn] to create a network topology that includes a simple [Amazon Virtual Private Cloud (Amazon VPC)][vpc] with 3 public subnets to deploy the [AWS Database Migration Service (AWS DMS)][aws-dms] replicaiton instnaces, as well as [Amazon Relational Database Service (Amazon RDS)][rds] instance for the target database. Additionally, it provisions an [Amazon Elastic Compute Cloud (EC2)][ec2] instance to host the tools that we use in this migration like the [AWS Schema Conversion Tool (AWS SCT)][aws-sct]. AWS CloudFormation simplifies provisioning the infrastructure, so we can concentrate on tasks related to data migration.
 
@@ -143,7 +143,10 @@ In this step, you will use a CloudFormation (CFN) template to deploy the infrast
     
 #### Summary
 
-You have completed the configuration of your environment. Please make sure that you take note of the output values and location of the DMSKeyPair.pem file generated during this setup.  You will use these values later in the migraiton process.
+You have completed the configuration of your environment. Please make sure that you take note of the output values and location of the DMSKeyPair.pem file generated during this setup.  You will use these values later in the migraiton process. Now you can select which migration walkthrough you want to follow:
+
+- [Microsoft SQL Server to Amazon Aurora (MySQL)](SQLServerMigration.md)
+- [Oracle to Amazon Aurora (PostgreSQL)](OracleMigration.md)
 
 ## Clean up
 
