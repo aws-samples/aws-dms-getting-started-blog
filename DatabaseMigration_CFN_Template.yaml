@@ -1,5 +1,5 @@
 # AWS Database Migration Workshop
-# Last Updated on Nov-05-2020 by HH
+# Last Updated on Jan-20-2021 by HH
 
 AWSTemplateFormatVersion: "2010-09-09"
 Description: CloudFormation Template for AWS Database Migration Workshop.
@@ -282,11 +282,12 @@ Resources:
     Properties:
       SubnetId: !Ref Subnet3
       RouteTableId: !Ref RouteTable
- 
+
   S3ReadOnlyAccessRole:
     Condition: Create-SQLServer-to-AuroraMySQL-Environment
     Type: "AWS::IAM::Role"
     Properties:
+      RoleName: DMS-Workshop-S3ReadOnlyAccessRole
       AssumeRolePolicyDocument:
         Version: 2012-10-17
         Statement:
@@ -297,13 +298,29 @@ Resources:
             Action:
               - "sts:AssumeRole"
       Path: /
-      ManagedPolicyArns:
-        - "arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess"
+        
+  S3ReadOnlyAccessRolePolicy:
+    Condition: Create-SQLServer-to-AuroraMySQL-Environment
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: DMS-Workshop-S3ReadOnlyAccessRolePolicy
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Action:
+            - "s3:ListBucket"
+            - "s3:GetObject"
+            - "s3:GetObjectVersion"
+          Resource: "arn:aws:s3:::do-not-delete-dms-blogpost/*"
+      Roles:
+      - !Ref S3ReadOnlyAccessRole
   
   EC2InstanceProfile:
     Condition: Create-SQLServer-to-AuroraMySQL-Environment
     Type: "AWS::IAM::InstanceProfile"
     Properties:
+      InstanceProfileName: DMS-Workshop-EC2InstanceProfile
       Path: /
       Roles:
         - !Ref S3ReadOnlyAccessRole

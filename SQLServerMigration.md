@@ -9,6 +9,7 @@ Before proceeding further, make sure you have completed the instructions in the 
 - A Microsoft SQL Server running on an [Amazon Elastic Compute Cloud (Amazon EC2)][ec2] instance as the source database. This server is also used run the AWS Schema Conversion Tool (AWS SCT), Microsoft SQL Server Management Studio, and MySQL Workbench.
 - An AWS RDS Aurora (MySQL) instance used as the target database.
 
+![\[SQLServerDiagram\]](img/SQLServer/SQLServerDiagram.png)
 
 Once you have completed the instructions in the [Environment Configuration][env-config] step, take special note of the following output values: 
 
@@ -315,7 +316,7 @@ An AWS DMS replication instance performs the actual data migration between sourc
 | ------ | ------ |
 | **Name** | DMSReplication |
 | **Description** | Replication server for Database Migration |
-| **Instance Class** | dms.c4.xlarge |
+| **Instance Class** | dms.c5.xlarge |
 | **Engine version** | Leave the default value |
 | **Allocated storage (GB)** | 50 |
 | **VPC** | **\<VPC ID from Environment Setup Step\>** |
@@ -340,7 +341,8 @@ Now that you have a replication instance, you need to create source and target e
 | ------ | ------ |
 | **Endpoint Type** | Source endpoint |
 | **Endpoint Identifier** | sqlserver-source |
-| **Source Engine** | sqlserver |
+| **Source Engine** | Microsoft SQL Server |
+| **Access to endpoint database** | Provide access information manually |
 | **Server Name** | **\< SourceEC2PrivateDns \>** |
 | **Port** | 1433 |
 | **SSL Mode** | none |
@@ -362,6 +364,7 @@ Now that you have a replication instance, you need to create source and target e
 | **Select RDS DB instance** | **\<StackName\>-AuroraMySQLInstance** |
 | **Endpoint Identifier** | aurora-target |
 | **Source Engine** | Amazon Aurora MySQL |
+| **Access to endpoint database** | Provide access information manually |
 | **Server Name** | **\< TargetAuroraMySQLEndpoint  \>** |
 | **Port** | 3306 |
 | **SSL Mode** | none |
@@ -391,8 +394,7 @@ AWS DMS uses **Database Migration Task** to migrate the data from source to the 
 | **Target database endpoint** | aurora-target |
 | **Migration type** | Migrate existing data and replicate ongoing changes |
 | **Editing mode** | Wizard |
-| **Start task on create** | Checked |
-| **CDC stop mode** | Don’t use custom CDC stop mode |
+| **Custom CDC stop mode for source transactions** | Disable custom CDC stop mode |
 | **Target table preparation mode** | Do nothing |
 | **Stop task after full load completes** | Don’t stop |
 | **Include LOB columns in replication** | Limited LOB mode |
@@ -487,10 +489,10 @@ Note that baseball, and football are the only two sports that are currently list
 28.	Now, use the following script to enable the foreign key constraints that we dropped earlier:
 
     1. Within **MySQL Workbench**, click on the **File** menu, and choose **Open SQL Script**. 
-    ![\[33\]](img/SQLServer/33.png)
     2. Open **AddConstraintsMySQL.sql** from **\Desktop\DMS Workshop\Scripts**. 
     3. **Execute** the script.
-    ![\[34\]](img/SQLServer/34.png)
+    
+    ![\[33\]](img/SQLServer/33.png)
 
 ## Replicating Data Changes from Source to the Target Database
 
@@ -513,6 +515,8 @@ WITH
 );
 ```
 
+![\[34\]](img/SQLServer/34.png)
+
 31.	Repeat steps 25 and 27 to inspect the content of **sport_type** table in the target database.
 
 ![\[33\]](img/SQLServer/35.png)
@@ -529,7 +533,7 @@ You can follow the same steps to migrate SQL Server and Oracle workloads to othe
 
 [ec2-console]: <http://amzn.to/2atGc3r>
 [dms-console]: https://console.aws.amazon.com/dms/
-[env-config]: </EnvironmentConfiguration.md>
+[env-config]: <EnvironmentConfiguration.md>
 [aws-sct]: <https://aws.amazon.com/dms/schema-conversion-tool/?nc=sn&loc=2>
 [aws-dms]: <https://aws.amazon.com/dms/>
 [aurora]: <https://aws.amazon.com/rds/aurora/>

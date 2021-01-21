@@ -18,7 +18,7 @@
 
 This repository demonstrates the ease of database migration from commercial database engines such as Microsoft SQL Server and Oracle to open source engines such as Amazon Aurora (MySQL) and Amazon Aurora (PostgreSQL).
 
-This section describes the steps to provision the AWS resources that are required for this database migration walkthrough. We use [AWS CloudFormation][cfn] to create a network topology that includes a simple [Amazon Virtual Private Cloud (Amazon VPC)][vpc] with 3 public subnets to deploy the [AWS Database Migration Service (AWS DMS)][aws-dms] replicaiton instnaces, as well as [Amazon Relational Database Service (Amazon RDS)][rds] instance for the target database. Additionally, it provisions an [Amazon Elastic Compute Cloud (EC2)][ec2] instance to host the tools that we use in this migration like the [AWS Schema Conversion Tool (AWS SCT)][aws-sct]. AWS CloudFormation simplifies provisioning the infrastructure, so we can concentrate on tasks related to data migration.
+This section describes the steps to provision the AWS resources that are required for this database migration walkthrough. We use [AWS CloudFormation][cfn] to create a network topology that includes a simple [Amazon Virtual Private Cloud (Amazon VPC)][vpc] with 3 public subnets to deploy the [AWS Database Migration Service (AWS DMS)][aws-dms] replicaiton instnace, as well as an [Amazon Relational Database Service (Amazon RDS)][rds] instance for the target database. Additionally, it provisions an [Amazon Elastic Compute Cloud (EC2)][ec2] instance to host the tools that we use in this migration like the [AWS Schema Conversion Tool (AWS SCT)][aws-sct]. AWS CloudFormation simplifies provisioning the infrastructure, so we can concentrate on tasks related to data migration.
 
 After you have completed the migration, you can refer to the [Environment Cleanup][env-cleanup] guide to delete the resources in your account to stop incurring additional costs. 
 
@@ -38,19 +38,19 @@ When you create a stack from the AWS CloudFormation template, it provisions the 
   
 - An [Amazon Aurora (MySQL)][aurora] database instance as the target database for the Microsoft SQL Server migration section.
   - No replicas
-  - db.r4.large or equivalent instance class
+  - db.r5.xlarge or equivalent instance class
   - Port 3306
   - Default option and parameter groups
   
 - An Amazon RDS Oracle Enterprise Edition (EE) as the source database for the Oracle mgiration section. 
   - Single-AZ setup
-  - db.r4.large or equivalent instance class
+  - db.r5.xlarge or equivalent instance class
   - Port 1521
   - Default option and parameter groups
   
 - An Amazon Aurora (PostgreSQL) DB instance as the target database for the Oracle migration section.
   - No replicas
-  - db.r4.large or equivalent instance class
+  - db.r5.xlarge or equivalent instance class
   - Port 1433
   - Default option and parameter groups
 
@@ -114,7 +114,7 @@ In this step, you will use a CloudFormation (CFN) template to deploy the infrast
 | **Subnet1CIDR** | The Subnet CIDR range for subnet 1 in the form x.x.x.x/24. Defaults to 10.20.1.0/24 |
 | **Subnet2CIDR** | The Subnet CIDR range for subnet 2 in the form x.x.x.x/24. Defaults to 10.20.2.0/24 |
 | **Subnet3CIDR** | The Subnet CIDR range for subnet 3 in the form x.x.x.x/24. Defaults to 10.20.3.0/24 |
-| **YourIPAddress** | Enter your IP address in the form x.x.x.x/32 You can find your IP on this website http://ipinfo.io/ip . Defaults to 0.0.0.0/0|
+| **YourIPAddress** | Enter the public IP address of your workstation in the form x.x.x.x/32, This is used to limit the access to the EC2 intance only from your workstation. Defaults to 0.0.0.0/0|
 
 *Note: The resources that are created here will be prefixed with whatever value you specify in the Stack Name.  Please specify a value that is unique to your account.*
 
