@@ -32,7 +32,7 @@ When you create a stack from the AWS CloudFormation template, it provisions the 
     
 - A DB subnet group that includes Subnet1, Subnet2, and Subnet3.
 
-- An Amazon EC2 instance to host the source databae for Microsoft SQL Server migraiton, AWS Schema Conversion Tool (AWS SCT), and other tools such as SQL Server Developer, and pgAdmin.
+- An Amazon EC2 instance to host the source database for Microsoft SQL Server migration, AWS Schema Conversion Tool (AWS SCT), and other tools such as SQL Server Developer, and pgAdmin.
   - m5.large or equivalent instance class
   - A Security Group with port 3389 (RDP) open to 0.0.0.0/0 (access from anywhere)  
   
@@ -42,7 +42,7 @@ When you create a stack from the AWS CloudFormation template, it provisions the 
   - Port 3306
   - Default option and parameter groups
   
-- An Amazon RDS Oracle Enterprise Edition (EE) as the source database for the Oracle mgiration section. 
+- An Amazon RDS Oracle Enterprise Edition (EE) as the source database for the Oracle migration section. 
   - Single-AZ setup
   - db.r5.xlarge or equivalent instance class
   - Port 1521
